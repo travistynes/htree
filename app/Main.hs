@@ -2,7 +2,7 @@
 
 module Main (main) where
 
-import System.Environment (getEnv)
+import System.Environment (getArgs, getEnv)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString as BS
@@ -19,6 +19,7 @@ main = do
     initLogging
     loadConfig
 
+    -- Get db connection
     dbFile <- getEnv "DB_FILE"
     conn <- open dbFile
     loggit DEBUG $ Fmt.format "Opened database file: {}" dbFile
@@ -28,6 +29,17 @@ main = do
     sqlCreateTable <- readFileUtf8 dbSchema
     execute_ conn (Query sqlCreateTable)
 
+    args <- getArgs
+    case args of
+        [] -> putStrLn "Missing required arguments. Try --help"
+        ("--help":_) -> putStrLn "Help description"
+        ("--search":name:_) -> putStrLn $ "Find: " ++ show name
+        ("--add":name:_) -> putStrLn $ "Add: " ++ show name
+        ("--delete":itemId:_) -> putStrLn $ "Delete: " ++ show itemId
+        ("--move":itemId:parentId:_) -> putStrLn $ "Move " ++ show itemId ++ " to parent id " ++ show parentId
+        (_:_) -> putStrLn "Unrecognized arguments"
+
+    -- Close db connection
     close conn
     loggit DEBUG $ Fmt.format "Closed database."
 
