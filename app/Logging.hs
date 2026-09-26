@@ -1,4 +1,4 @@
-module Logging (initLogging, loggit) where
+module Logging (initLogging, loggit, Priority(..)) where
 
 import System.Log.Logger
 import System.Log.Handler.Simple (streamHandler)
