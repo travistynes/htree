@@ -31,7 +31,7 @@ main = do
     -- Get db connection
     dbFile <- getEnv "DB_FILE"
     conn <- open dbFile
-    loggit DEBUG $ Fmt.format "Opened database: {}" dbFile
+    --loggit DEBUG $ Fmt.format "Opened database: {}" dbFile
 
     -- Create main table, if necessary
     dbSchema <- getEnv "DB_SCHEMA"
@@ -51,7 +51,7 @@ main = do
 
     -- Close db connection
     close conn
-    loggit DEBUG $ Fmt.format "Closed database."
+    --loggit DEBUG $ Fmt.format "Closed database."
 
 searchItem :: Connection -> String -> IO ()
 searchItem conn name = do
@@ -82,7 +82,7 @@ addItem conn name args = do
     let dt = getArg "--dt" args
     let parentId = (read <$> getArg "--parent" args) :: Maybe Int
     execute conn sql (name, description, dt, parentId)
-    loggit DEBUG $ Fmt.format "Added item: {}" name
+    putStrLn $ Fmt.format "Added item: {}" name
 
 getArg :: String -> [String] -> Maybe String
 getArg _ [] = Nothing
