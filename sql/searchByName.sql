@@ -1,7 +1,3 @@
--- Find all items matching the name (case-insensitive/partial), recursively include
--- each match's descendants, and build the full path from root → item. Append the
--- item's description and date when present, and sort each subtree by date newest
--- → oldest (NULL dates last), with ID descending as a tie-breaker.
 WITH RECURSIVE
 
 matches AS (
@@ -10,7 +6,7 @@ matches AS (
     WHERE name LIKE '%' || ? || '%'
 ),
 
-subtree AS (
+tree_order AS (
     SELECT
         i.id,
         i.parent_id,
@@ -24,14 +20,14 @@ subtree AS (
         || '.' ||
         printf('%010d', 9999999999 - i.id) AS sort_path
     FROM item i
-    JOIN matches m ON m.id = i.id
+    WHERE i.parent_id IS NULL
 
     UNION ALL
 
     SELECT
         i.id,
         i.parent_id,
-        s.sort_path || '.' ||
+        t.sort_path || '.' ||
         CASE
             WHEN i.dt IS NULL THEN '1'
             ELSE '0' || printf(
@@ -41,6 +37,22 @@ subtree AS (
         END
         || '.' ||
         printf('%010d', 9999999999 - i.id)
+    FROM item i
+    JOIN tree_order t ON i.parent_id = t.id
+),
+
+subtree AS (
+    SELECT
+        i.id,
+        i.parent_id
+    FROM item i
+    JOIN matches m ON m.id = i.id
+
+    UNION ALL
+
+    SELECT
+        i.id,
+        i.parent_id
     FROM item i
     JOIN subtree s ON i.parent_id = s.id
 ),
@@ -66,8 +78,6 @@ ancestors AS (
 )
 
 SELECT
-    --printf('%1d', a.item_id) ||
-    --' | ' ||
     (
         SELECT group_concat(name, ' > ')
         FROM (
@@ -90,10 +100,9 @@ SELECT
         ELSE ''
     END
     ||
-    ' [' || a.item_id || ']'
-    AS path
+    ' [' || a.item_id || ']' AS path
 FROM ancestors a
 JOIN item leaf ON leaf.id = a.item_id
-JOIN subtree s ON s.id = a.item_id
+JOIN tree_order t ON t.id = a.item_id
 WHERE a.level = 0
-ORDER BY s.sort_path;
+ORDER BY t.sort_path;

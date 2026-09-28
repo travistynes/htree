@@ -40,18 +40,24 @@ main = do
 
     args <- getArgs
     case args of
-        [] -> putStrLn "Missing required arguments. Try --help"
-        ("--help":_) -> putStrLn "Help description"
+        [] -> putStrLn "htree: try 'htree --help' for more information"
+        ("--help":_) -> showHelp
         ("--search":name:_) -> searchItem conn name
         ("--id":itemId:_) -> getItem conn (read itemId :: Int)
         ("--add":name:xs) -> addItem conn name xs
         ("--delete":itemId:_) -> putStrLn $ "Delete: " ++ show itemId
         ("--move":itemId:parentId:_) -> putStrLn $ "Move " ++ show itemId ++ " to parent id " ++ show parentId
-        (_:_) -> putStrLn "Unrecognized arguments"
+        (_:_) -> putStrLn "Unrecognized arguments, try 'htree --help' for more information"
 
     -- Close db connection
     close conn
     --loggit DEBUG $ Fmt.format "Closed database."
+
+showHelp :: IO ()
+showHelp = do
+    putStrLn "Usage: htree [options...]"
+    putStrLn " --search <name>          Find items by name or partial name, case insensitive"
+    putStrLn " --help                   Get help for commands"
 
 searchItem :: Connection -> String -> IO ()
 searchItem conn name = do
