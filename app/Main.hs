@@ -29,8 +29,7 @@ main = do
     loadConfig
 
     -- Get db connection
-    dbFile <- getEnv "DB_FILE"
-    conn <- open dbFile
+    conn <- getConnection
     --loggit DEBUG $ Fmt.format "Opened database: {}" dbFile
 
     -- Create main table, if necessary
@@ -41,39 +40,43 @@ main = do
     args <- getArgs
     case args of
         [] -> putStrLn "htree: try 'htree --help' for more information"
-        ("--help":_) -> showHelp
+        ("--help":xs) -> showHelp xs
+        ("--list":_) -> putStrLn "list all items"
         ("--search":name:_) -> searchItem conn name
-        ("--id":itemId:_) -> getItem conn (read itemId :: Int)
         ("--add":name:xs) -> addItem conn name xs
-        ("--delete":itemId:_) -> putStrLn $ "Delete: " ++ show itemId
-        ("--move":itemId:parentId:_) -> putStrLn $ "Move " ++ show itemId ++ " to parent id " ++ show parentId
+        ("--delete":itemId:_) -> deleteItem conn (read itemId)
+        ("--move":itemId:parentId:_) -> moveItem conn (read itemId) (read parentId)
         (_:_) -> putStrLn "Unrecognized arguments, try 'htree --help' for more information"
 
     -- Close db connection
     close conn
     --loggit DEBUG $ Fmt.format "Closed database."
 
-showHelp :: IO ()
-showHelp = do
-    putStrLn "Usage: htree [options...]"
-    putStrLn " --search <name>          Find items by name or partial name, case insensitive"
-    putStrLn " --help                   Get help for commands"
+showHelp :: [String] -> IO ()
+showHelp args = do
+    case args of
+        [] -> do
+            putStrLn "Usage: htree [options...]"
+            putStrLn " --help                   Get help for commands"
+            putStrLn " --add <name>             Add new item, see '--help add' for options"
+            putStrLn " --delete <id>            Delete item by id, including its subtree"
+            putStrLn " --list                   List all items"
+            putStrLn " --move <id> <parent id>  Move item by id, including its subtree, under new parent id"
+            putStrLn " --search <name>          Find items by name or partial name, case insensitive"
+        ("add":_) -> do
+            putStrLn "Add new item. Only item name is required."
+            putStrLn "Optional arguments:"
+            putStrLn " --description    Item description"
+            putStrLn " --dt             Date in the form yyyy-mm-dd, used for sorting siblings in the tree"
+            putStrLn " --parent         Parent id. Without this, the new item becomes a top level item"
+            putStrLn "Example usage: htree --add \"Item name\" --description \"Item description\" --dt \"2026-01-15\" --parent 3"
+        (_:_) ->
+            putStrLn "Unrecognized arguments, try 'htree --help' for more information"
 
 searchItem :: Connection -> String -> IO ()
 searchItem conn name = do
     sqlSearch <- readFileUtf8 "sql/searchByName.sql"
     rows <- query conn (Query sqlSearch) [name] :: IO [Only T.Text]
-
-    case rows of
-        [] -> putStrLn "No data."
-        (_:_) ->
-            forM_ rows $ \(Only r) ->
-                putStrLn $ T.unpack r
-
-getItem :: Connection -> Int -> IO ()
-getItem conn itemId = do
-    sql <- readFileUtf8 "sql/getItemById.sql"
-    rows <- query conn (Query sql) [itemId] :: IO [Only T.Text]
 
     case rows of
         [] -> putStrLn "No data."
@@ -88,12 +91,34 @@ addItem conn name args = do
     let dt = getArg "--dt" args
     let parentId = (read <$> getArg "--parent" args) :: Maybe Int
     execute conn sql (name, description, dt, parentId)
-    putStrLn $ Fmt.format "Added item: {}" name
+    rowId <- lastInsertRowId conn
+    putStrLn $ Fmt.format "Added item: {} [{}]" name (show rowId)
+
+deleteItem :: Connection -> Int -> IO ()
+deleteItem conn itemId = do
+    let sql = "delete from item where id = ?"
+    execute conn sql [itemId]
+    putStrLn $ Fmt.format "Deleted item: {}" itemId
+
+moveItem :: Connection -> Int -> Int -> IO ()
+moveItem conn itemId parentId = do
+    let sql = "update item set parent_id = ? where id = ?"
+    execute conn sql (parentId, itemId)
+    putStrLn $ Fmt.format "Moved item."
 
 getArg :: String -> [String] -> Maybe String
 getArg _ [] = Nothing
 getArg _ [_] = Nothing
 getArg arg (k:v:xs) | arg == k = Just v | otherwise = getArg arg xs
+
+getConnection :: IO Connection
+getConnection = do
+    dbFile <- getEnv "DB_FILE"
+    conn <- open dbFile
+    
+    -- enable foreign key enforcement on each connection
+    execute_ conn "pragma foreign_keys = on"
+    pure conn
 
 loadConfig :: IO ()
 loadConfig = do

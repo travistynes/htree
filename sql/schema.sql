@@ -4,7 +4,11 @@ create table if not exists item (
     description text,
     dt text,
     parent_id integer,
-    created text not null default current_timestamp
+    created text not null default current_timestamp,
+
+    foreign key (parent_id)
+        references item(id)
+        on delete cascade
 );
 
 insert into item (id, name, description, dt, parent_id) values
