@@ -87,10 +87,11 @@ Delete item `5` and its entire subtree:
 $ cabal run htree -- --delete 5
 ```
 
-### Specify a different database file, creating it if it doesn't already exist
+### Specify database file
 
 The default database file is set at config/htree.env: DB_FILE
-Override it on the command line:
+
+Override it on the command line. It will be created if it doesn't exist.
 
 ```console
 $ cabal run htree -- --db "test.db" --add "Item name"
