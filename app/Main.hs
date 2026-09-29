@@ -11,18 +11,6 @@ import Configuration.Dotenv (Config(..))
 import Database.SQLite.Simple
 import Control.Monad (forM_)
 
-data HtreeRow = HtreeRow {
-    htId :: Int,
-    htName :: String,
-    htDescription :: Maybe String,
-    htDt :: Maybe String,
-    htParentId :: Maybe Int,
-    htCreatedDt :: String
-} deriving Show
-
-instance FromRow HtreeRow where
-    fromRow = HtreeRow <$> field <*> field <*> field <*> field <*> field <*> field
-
 main :: IO ()
 main = do
     initLogging
@@ -41,7 +29,7 @@ main = do
     case args of
         [] -> putStrLn "htree: try 'htree --help' for more information"
         ("--help":xs) -> showHelp xs
-        ("--list":_) -> putStrLn "list all items"
+        ("--roots":_) -> listRoots conn
         ("--search":name:_) -> searchItem conn name
         ("--add":name:xs) -> addItem conn name xs
         ("--delete":itemId:_) -> deleteItem conn (read itemId)
@@ -60,8 +48,8 @@ showHelp args = do
             putStrLn " --help                   Get help for commands"
             putStrLn " --add <name>             Add new item, see '--help add' for options"
             putStrLn " --delete <id>            Delete item by id, including its subtree"
-            putStrLn " --list                   List all items"
             putStrLn " --move <id> <parent id>  Move item by id, including its subtree, under new parent id"
+            putStrLn " --roots                  Show all top-level items"
             putStrLn " --search <name>          Find items by name or partial name, case insensitive"
         ("add":_) -> do
             putStrLn "Add new item. Only item name is required."
@@ -72,6 +60,17 @@ showHelp args = do
             putStrLn "Example usage: htree --add \"Item name\" --description \"Item description\" --dt \"2026-01-15\" --parent 3"
         (_:_) ->
             putStrLn "Unrecognized arguments, try 'htree --help' for more information"
+
+listRoots :: Connection -> IO ()
+listRoots conn = do
+    let sql = "select id, name from item where parent_id is null order by id desc"
+    rows <- query_ conn sql :: IO [(Int, T.Text)]
+
+    case rows of
+        [] -> putStrLn "No data."
+        (_:_) ->
+            forM_ rows $ \(itemId, name) ->
+                putStrLn $ (T.unpack name) ++ " [" ++ (show itemId) ++ "]"
 
 searchItem :: Connection -> String -> IO ()
 searchItem conn name = do
