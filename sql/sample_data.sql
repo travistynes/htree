@@ -8,5 +8,9 @@ insert into item (id, name, parent_id) values
 (7, '2023 Royal Enfield Scram 411', 3),
 (8, 'Oil change', 7),
 (9, 'Air Filter', 7),
-(10, 'Top level item', null)
+(10, 'Top level item', null),
+(11, 'Air Glide', 3),
+(12, 'Air filter', 11),
+(13, 'Air max brand', 12),
+(14, 'Oil change', 11)
 ;

@@ -1,6 +1,6 @@
 module Main (main) where
 
-import System.Environment (getArgs, getEnv)
+import System.Environment (getArgs, getEnv, setEnv)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString as BS
@@ -16,6 +16,13 @@ main = do
     initLogging
     loadConfig
 
+    -- Get command line arguments
+    iArgs <- getArgs
+
+    -- Check if the database file was passed in.
+    -- It will override the current environment variable.
+    args <- setDBFile iArgs
+
     -- Get db connection
     conn <- getConnection
     --loggit DEBUG $ Fmt.format "Opened database: {}" dbFile
@@ -25,15 +32,14 @@ main = do
     sqlCreateTable <- readFileUtf8 dbSchema
     execute_ conn (Query sqlCreateTable)
 
-    args <- getArgs
     case args of
         [] -> putStrLn "htree: try 'htree --help' for more information"
         ("--help":xs) -> showHelp xs
-        ("--roots":_) -> listRoots conn
-        ("--search":name:_) -> searchItem conn name
         ("--add":name:xs) -> addItem conn name xs
         ("--delete":itemId:_) -> deleteItem conn (read itemId)
         ("--move":itemId:parentId:_) -> moveItem conn (read itemId) (read parentId)
+        ("--roots":_) -> listRoots conn
+        ("--search":name:_) -> searchItem conn name
         (_:_) -> putStrLn "Unrecognized arguments, try 'htree --help' for more information"
 
     -- Close db connection
@@ -46,6 +52,7 @@ showHelp args = do
         [] -> do
             putStrLn "Usage: htree [options...]"
             putStrLn " --help                   Get help for commands"
+            putStrLn " --db <file>              Specify the database file to use (optional)"
             putStrLn " --add <name>             Add new item, see '--help add' for options"
             putStrLn " --delete <id>            Delete item by id, including its subtree"
             putStrLn " --move <id> <parent id>  Move item by id, including its subtree, under new parent id"
@@ -109,6 +116,17 @@ getArg :: String -> [String] -> Maybe String
 getArg _ [] = Nothing
 getArg _ [_] = Nothing
 getArg arg (k:v:xs) | arg == k = Just v | otherwise = getArg arg xs
+
+-- Set the database file as an environment variable if it was passed in
+-- and rebuild the arguments with it removed.
+setDBFile :: [String] -> IO [String]
+setDBFile [] = pure []
+setDBFile ("--db":dbFile:xs) = do
+    setEnv "DB_FILE" dbFile
+    setDBFile xs
+setDBFile (x:xs) = do
+    rest <- setDBFile xs
+    pure (x : rest)
 
 getConnection :: IO Connection
 getConnection = do

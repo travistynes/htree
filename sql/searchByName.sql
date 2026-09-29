@@ -48,7 +48,7 @@ subtree AS (
     FROM item i
     JOIN matches m ON m.id = i.id
 
-    UNION ALL
+    UNION
 
     SELECT
         i.id,
