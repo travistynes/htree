@@ -91,8 +91,8 @@ $ cabal run htree -- --delete 5
 
 The default database file is set at config/htree.env: DB_FILE
 
-Override it on the command line. It will be created if it doesn't exist.
+The database file can be set in the env file or by setting the DB_FILE environment variable. The database file will be created if it doesn't exist.
 
 ```console
-$ cabal run htree -- --db "test.db" --add "Item name"
+$ export DB_FILE="test.db"
 ```

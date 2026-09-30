@@ -1,6 +1,6 @@
 module Main (main) where
 
-import System.Environment (getArgs, getEnv, setEnv)
+import System.Environment (getArgs, getEnv)
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as TE
 import qualified Data.ByteString as BS
@@ -16,22 +16,16 @@ main = do
     initLogging
     loadConfig
 
-    -- Get command line arguments
-    iArgs <- getArgs
-
-    -- Check if the database file was passed in.
-    -- It will override the current environment variable.
-    args <- setDBFile iArgs
-
     -- Get db connection
     conn <- getConnection
-    --loggit DEBUG $ Fmt.format "Opened database: {}" dbFile
 
     -- Create main table, if necessary
     dbSchema <- getEnv "DB_SCHEMA"
     sqlCreateTable <- readFileUtf8 dbSchema
     execute_ conn (Query sqlCreateTable)
 
+    -- Get command line arguments
+    args <- getArgs
     case args of
         [] -> putStrLn "htree: try 'htree --help' for more information"
         ("--help":xs) -> showHelp xs
@@ -44,7 +38,7 @@ main = do
 
     -- Close db connection
     close conn
-    --loggit DEBUG $ Fmt.format "Closed database."
+    loggit DEBUG $ Fmt.format "Closed database."
 
 showHelp :: [String] -> IO ()
 showHelp args = do
@@ -52,7 +46,6 @@ showHelp args = do
         [] -> do
             putStrLn "Usage: htree [options...]"
             putStrLn " --help                   Get help for commands"
-            putStrLn " --db <file>              Specify the database file to use (optional)"
             putStrLn " --add <name>             Add new item, see '--help add' for options"
             putStrLn " --delete <id>            Delete item by id, including its subtree"
             putStrLn " --move <id> <parent id>  Move item by id, including its subtree, under new parent id"
@@ -117,17 +110,6 @@ getArg _ [] = Nothing
 getArg _ [_] = Nothing
 getArg arg (k:v:xs) | arg == k = Just v | otherwise = getArg arg xs
 
--- Set the database file as an environment variable if it was passed in
--- and rebuild the arguments with it removed.
-setDBFile :: [String] -> IO [String]
-setDBFile [] = pure []
-setDBFile ("--db":dbFile:xs) = do
-    setEnv "DB_FILE" dbFile
-    setDBFile xs
-setDBFile (x:xs) = do
-    rest <- setDBFile xs
-    pure (x : rest)
-
 getConnection :: IO Connection
 getConnection = do
     dbFile <- getEnv "DB_FILE"
@@ -135,6 +117,7 @@ getConnection = do
     
     -- enable foreign key enforcement on each connection
     execute_ conn "pragma foreign_keys = on"
+    loggit DEBUG $ Fmt.format "Opened database: {}" dbFile
     pure conn
 
 loadConfig :: IO ()

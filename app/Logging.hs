@@ -15,9 +15,10 @@ initLogging = do
     -- ie. duplicate log messages will be logged
     updateGlobalLogger rootLoggerName removeHandler
 
-    handler <- streamHandler stdout DEBUG
+    let priority = WARNING
+    handler <- streamHandler stdout priority
         >>= \h -> pure $ LogHandler.setFormatter h (simpleLogFormatter "[$time - $loggername ($prio)] $msg")
-    updateGlobalLogger loggerName (setLevel DEBUG . setHandlers [handler])
+    updateGlobalLogger loggerName (setLevel priority . setHandlers [handler])
 
 -- Log message at the given priority (DEBUG, INFO, WARNING, ERROR, etc.)
 loggit :: Priority -> String -> IO ()
